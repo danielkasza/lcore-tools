@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; START of the header ;;;;;
 
-.Orig x0500
+.Orig x0
 INIT_CODE
 LD R5, STACK_ADDR
 ADD R6, R5, #0
