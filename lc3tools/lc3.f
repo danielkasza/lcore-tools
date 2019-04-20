@@ -69,37 +69,11 @@ enum opcode_t {
     /* directives */
     OP_BLKW, OP_END, OP_ORIG, 
 
-/************************************************************************/
-/*		DTU extensions						*/
-/* Syntactic sugar:							*/
-/*   NOP:       alias to BR with nzp cleared (0x0000 is used here)	*/
-/*   .BLKWTO:   version of .BLKW which reserves memory untill offset    */
-/*              instead of reserving count words                       	*/
-/*									*/
-/* Immediate shifts:							*/
-/*   "SLL/SRA <imm4u>" are implemented in unused bits of ADD/AND:	*/
-/* 	SLL: 0001.dr.sr1.01.imm4u					*/
-/* 	SRA: 0101.dr.sr1.01.imm4u					*/
-/*									*/
-/* Extra RRR format (3 reg) arithmetics:				*/
-/*   SLL,SRA,DIV,MOD and MUL implemented in reserved instruction:	*/
-/*	     1101.dr.sr1.func.sr2					*/
-/*	where 3bit func field is 0,1,2... for SLL,SRA,DIV,MOD and MUL	*/
-/*									*/
-
-    OP_SLL,	/* Shift Left Logical					*/
-    OP_SRA,	/* Shift Right Arithmetic				*/
-    OP_DIV,	/* Divide						*/
-    OP_MOD,	/* Remainder						*/
-    OP_MUL,	/* Multiply						*/
-
     /* pseudo-ops */
     OP_NOP,	/* No operation						*/
     
     /* directives */
     OP_BLKWTO,
-/*									*/
-/************************************************************************/
 
     NUM_OPS
 };
@@ -118,21 +92,11 @@ static const char* const opnames[NUM_OPS] = {
     /* directives */
     ".BLKW", ".END", ".ORIG",
 
-/************************************************/
-/*		DTU extensions			*/
-    "SLL",	/* Shift Left Logical		*/
-    "SRA",	/* Shift Right Arithmetic	*/
-    "DIV",	/* Divide			*/
-    "MOD",	/* Remainder			*/
-    "MUL",	/* Multiply			*/
-
     /* pseudo-ops */
     "NOP",	/* No operation			*/
  
     /* directives */
     ".BLKWTO",  /* Fill value untill address    */
-/*						*/
-/************************************************/
 };
 
 typedef enum ccode_t ccode_t;
@@ -182,26 +146,13 @@ static const int op_format_ok[NUM_OPS] = {
     /* directive formats */
     0x040, /* .BLKW: I format only         */
     0x200, /* .END: no operands allowed    */
-    0x040  /* .ORIG: I format only         */
-
-/************************************************/
-/*		DTU extensions			*/
-    ,
-    0x003, /* SLL: RRR format (in RESERV opcode)*/
-	   /*      RRI format (in ADD opcode)   */
-    0x003, /* SRA: RRR format (in RESERV opcode)*/
-	   /*      RRI format (in AND opcode)   */
-    0x001, /* DIV: RRR format only		*/
-    0x001, /* MOD: RRR format only		*/
-    0x001, /* MUL: RRR format only		*/
+    0x040, /* .ORIG: I format only         */
 
     /* pseudo-ops */
     0x200, /* NOP: no operands allowed		*/
  
     /* directives */
     0x040  /* .BLKWTO: I format only            */
-/*						*/
-/************************************************/
 };
 
 typedef enum pre_parse_t pre_parse_t;
@@ -374,22 +325,11 @@ RET       {inst.op = OP_RET;  last_cmd = "RET"; BEGIN (ls_operands);}
 \.END     {saw_end = 1;       last_cmd = NULL; BEGIN (ls_finished);}
 \.ORIG    {inst.op = OP_ORIG; last_cmd = NULL; BEGIN (ls_operands);}
 
- /***********************************************/
- /*		DTU extensions			*/
-SLL       {inst.op = OP_SLL;   last_cmd = "SLL"; BEGIN (ls_operands);}
-SRA       {inst.op = OP_SRA;   last_cmd = "SRA"; BEGIN (ls_operands);}
-DIV       {inst.op = OP_DIV;   last_cmd = "DIV"; BEGIN (ls_operands);}
-MOD       {inst.op = OP_MOD;   last_cmd = "MOD"; BEGIN (ls_operands);}
-MUL       {inst.op = OP_MUL;   last_cmd = "MUL"; BEGIN (ls_operands);}
-
     /* pseudo-ops */
 NOP       {inst.op = OP_NOP;   last_cmd = "NOP"; BEGIN (ls_operands);}
 
     /* directives */
 \.BLKWTO  {inst.op = OP_BLKWTO;last_cmd = ".BLKWTO";  BEGIN (ls_operands);}
-
- /*						*/
- /***********************************************/
 
     /* debug support */
 \.DEBUG{SPACE}+FILE{SPACE}+ { BEGIN (ls_debug_file);}
@@ -1134,41 +1074,6 @@ generate_instruction (operands_t operands, const char* opstr)
 	case NUM_OPS:
 	    break;
 
-/************************************************/
-/*		DTU extensions			*/
-    	/* Shift Left Logical */
-	case OP_SLL:
-	    if (operands == O_RRI) {
-	        (void)read_unsigned_val (o3, &val, 4);
-		write_value (0x1010 | (r1 << 9) | (r2 << 6) | (val & 0xF), 1);
-	    } else
-		write_value (0xD000 | (r1 << 9) | (r2 << 6) | r3, 1);
-	    break;
-
-	/* Shift Right Arithmetic */
-	case OP_SRA:
-	    if (operands == O_RRI) {
-	        (void)read_unsigned_val (o3, &val, 4);
-		write_value (0x5010 | (r1 << 9) | (r2 << 6) | (val & 0xF), 1);
-	    } else
-		write_value (0xD000 | (r1 << 9) | (r2 << 6) | ((OP_SRA-OP_SLL) << 3) | r3, 1);
-	    break;
-
-	/* Divide */
-	case OP_DIV:
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | ((OP_DIV-OP_SLL) << 3) | r3, 1);
-	    break;
-
-	/* Remainder */
-	case OP_MOD:
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | ((OP_MOD-OP_SLL) << 3) | r3, 1);
-	    break;
-
-	/* Multiply */
-	case OP_MUL:
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | ((OP_MUL-OP_SLL) << 3) | r3, 1);
-	    break;
-
 	/* pseudo-ops */
 	case OP_NOP:
             write_value (0x0000, 1);
@@ -1188,8 +1093,6 @@ generate_instruction (operands_t operands, const char* opstr)
                 }
             }
 	    break;
-/*						*/
-/************************************************/
     }
     new_inst_line ();
 }
