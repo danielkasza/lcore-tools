@@ -60,11 +60,8 @@ enum opcode_t {
     OP_NONE,
 
     /* real instruction opcodes */
-    OP_ADD, OP_AND, OP_BR, OP_JMP, OP_JSR, OP_JSRR, OP_LD, OP_LDI, OP_LDR,
-    OP_LEA, OP_NOT, OP_RTI, OP_ST, OP_STI, OP_STR, OP_TRAP,
-
-    /* trap pseudo-ops */
-    OP_GETC, OP_HALT, OP_IN, OP_OUT, OP_PUTS, OP_PUTSP,
+    OP_ADD, OP_AND, OP_XOR, OP_BR, OP_JMP, OP_JSR, OP_JSRR, OP_LD, OP_IN,
+    OP_LDR, OP_LEA, OP_NOT, OP_RTI, OP_ST, OP_OUT, OP_STR,
 
     /* non-trap pseudo-ops */
     OP_FILL, OP_RET, OP_STRINGZ,
@@ -112,11 +109,8 @@ static const char* const opnames[NUM_OPS] = {
     "missing opcode",
 
     /* real instruction opcodes */
-    "ADD", "AND", "BR", "JMP", "JSR", "JSRR", "LD", "LDI", "LDR", "LEA",
-    "NOT", "RTI", "ST", "STI", "STR", "TRAP",
-
-    /* trap pseudo-ops */
-    "GETC", "HALT", "IN", "OUT", "PUTS", "PUTSP",
+    "ADD", "AND", "XOR", "BR", "JMP", "JSR", "JSRR", "LD", "IN", "LDR",
+    "LEA", "NOT", "RTI", "ST", "OUT", "STR",
 
     /* non-trap pseudo-ops */
     ".FILL", "RET", ".STRINGZ",
@@ -165,28 +159,20 @@ static const int op_format_ok[NUM_OPS] = {
     /* real instruction formats */
     0x003, /* ADD: RRR or RRI formats only */
     0x003, /* AND: RRR or RRI formats only */
+    0x003, /* XOR: RRR or RRI formats only */
     0x0C0, /* BR: I or L formats only      */
     0x020, /* JMP: R format only           */
     0x0C0, /* JSR: I or L formats only     */
     0x020, /* JSRR: R format only          */
     0x018, /* LD: RI or RL formats only    */
-    0x018, /* LDI: RI or RL formats only   */
+    0x008, /* IN: RI format only   */
     0x002, /* LDR: RRI format only         */
     0x018, /* LEA: RI or RL formats only   */
     0x004, /* NOT: RR format only          */
     0x200, /* RTI: no operands allowed     */
     0x018, /* ST: RI or RL formats only    */
-    0x018, /* STI: RI or RL formats only   */
+    0x008, /* OUT: RI format only   */
     0x002, /* STR: RRI format only         */
-    0x040, /* TRAP: I format only          */
-
-    /* trap pseudo-op formats (no operands) */
-    0x200, /* GETC: no operands allowed    */
-    0x200, /* HALT: no operands allowed    */
-    0x200, /* IN: no operands allowed      */
-    0x200, /* OUT: no operands allowed     */
-    0x200, /* PUTS: no operands allowed    */
-    0x200, /* PUTSP: no operands allowed   */
 
     /* non-trap pseudo-op formats */
     0x0C0, /* .FILL: I or L formats only   */
@@ -363,28 +349,20 @@ O_     {ENDLINE}
     /* rules for real instruction opcodes */
 ADD       {inst.op = OP_ADD;  last_cmd = "ADD"; BEGIN (ls_operands);}
 AND       {inst.op = OP_AND;  last_cmd = "AND"; BEGIN (ls_operands);}
+XOR       {inst.op = OP_XOR;  last_cmd = "XOR"; BEGIN (ls_operands);}
 BR{CCODE} {inst.op = OP_BR;   parse_ccode (yytext + 2); BEGIN (ls_operands);}
 JMP       {inst.op = OP_JMP;  last_cmd = "JMP"; BEGIN (ls_operands);}
 JSRR      {inst.op = OP_JSRR; last_cmd = "JSRR"; BEGIN (ls_operands);}
 JSR       {inst.op = OP_JSR;  last_cmd = "JSR"; BEGIN (ls_operands);}
-LDI       {inst.op = OP_LDI;  last_cmd = "LDI"; BEGIN (ls_operands);}
+IN        {inst.op = OP_IN;   last_cmd = "IN";  BEGIN (ls_operands);}
 LDR       {inst.op = OP_LDR;  last_cmd = "LDR"; BEGIN (ls_operands);}
 LD        {inst.op = OP_LD;   last_cmd = "LD";  BEGIN (ls_operands);}
 LEA       {inst.op = OP_LEA;  last_cmd = "LEA"; BEGIN (ls_operands);}
 NOT       {inst.op = OP_NOT;  last_cmd = "NOT"; BEGIN (ls_operands);}
 RTI       {inst.op = OP_RTI;  last_cmd = "RTI"; BEGIN (ls_operands);}
-STI       {inst.op = OP_STI;  last_cmd = "STI"; BEGIN (ls_operands);}
+OUT       {inst.op = OP_OUT;  last_cmd = "OUT"; BEGIN (ls_operands);}
 STR       {inst.op = OP_STR;  last_cmd = "STR"; BEGIN (ls_operands);}
 ST        {inst.op = OP_ST;   last_cmd = "ST";  BEGIN (ls_operands);}
-TRAP      {inst.op = OP_TRAP; last_cmd = "TRAP"; BEGIN (ls_operands);}
-
-    /* rules for trap pseudo-ols */
-GETC      {inst.op = OP_GETC; last_cmd = "GETC"; BEGIN (ls_operands);}
-HALT      {inst.op = OP_HALT; last_cmd = "HALT"; BEGIN (ls_operands);}
-IN        {inst.op = OP_IN;   last_cmd = "IN"; BEGIN (ls_operands);}
-OUT       {inst.op = OP_OUT;  last_cmd = "OUT"; BEGIN (ls_operands);}
-PUTS      {inst.op = OP_PUTS; last_cmd = "PUTS"; BEGIN (ls_operands);}
-PUTSP     {inst.op = OP_PUTSP;last_cmd = "PUTSP"; BEGIN (ls_operands);}
 
     /* rules for non-trap pseudo-ops */
 \.FILL    {inst.op = OP_FILL; last_cmd = ".FILL"; BEGIN (ls_operands);}
@@ -1037,6 +1015,15 @@ generate_instruction (operands_t operands, const char* opstr)
 	    } else
 		write_value (0x5000 | (r1 << 9) | (r2 << 6) | r3, 1);
 	    break;
+	case OP_XOR:
+	    if (operands == O_RRI) {
+	    	/* Check or read immediate range (error in first pass
+		   prevents execution of second, so never fails). */
+	        (void)read_signed_val (o3, &val, 5);
+		write_value (0x9020 | (r1 << 9) | (r2 << 6) | (val & 0x1F), 1);
+	    } else
+		write_value (0x9000 | (r1 << 9) | (r2 << 6) | r3, 1);
+	    break;
 	case OP_BR:
 	    if (operands == O_I)
 	        (void)read_signed_val (o1, &val, 9);
@@ -1060,7 +1047,7 @@ generate_instruction (operands_t operands, const char* opstr)
 	case OP_LD:
 	    write_value (0x2000 | (r1 << 9) | (val & 0x1FF), 1);
 	    break;
-	case OP_LDI:
+	case OP_IN:
 	    write_value (0xA000 | (r1 << 9) | (val & 0x1FF), 1);
 	    break;
 	case OP_LDR:
@@ -1079,37 +1066,13 @@ generate_instruction (operands_t operands, const char* opstr)
 	case OP_ST:
 	    write_value (0x3000 | (r1 << 9) | (val & 0x1FF), 1);
 	    break;
-	case OP_STI:
+	case OP_OUT:
 	    write_value (0xB000 | (r1 << 9) | (val & 0x1FF), 1);
 	    break;
 	case OP_STR:
 	    (void)read_signed_val (o3, &val, 6);
 	    write_value (0x7000 | (r1 << 9) | (r2 << 6) | (val & 0x3F), 1);
 	    break;
-	case OP_TRAP:
-	    (void)read_unsigned_val (o1, &val, 8);
-	    write_value (0xF000 | (val & 0xFF),1);
-	    break;
-
-	/* Generate trap pseudo-ops. */
-	case OP_GETC:  
-            write_value (0xF020,1);
-            break;
-	case OP_HALT:
-            write_value (0xF025,1);
-            break;
-	case OP_IN:
-            write_value (0xF023,1);
-            break;
-	case OP_OUT:
-            write_value (0xF021,1);
-            break;
-	case OP_PUTS:
-            write_value (0xF022,1);
-            break;
-	case OP_PUTSP:
-            write_value (0xF024,1);
-            break;
 
 	/* Generate non-trap pseudo-ops. */
     	case OP_FILL:
