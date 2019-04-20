@@ -2,7 +2,7 @@
 
 # Parse the arguments...
 
-INSTALL_DIR=`pwd`
+INSTALL_DIR=`pwd`/../install/bin/
 for opt ; do
 case $opt in 
 	--installdir) 
