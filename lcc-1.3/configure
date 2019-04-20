@@ -3,7 +3,7 @@
 #
 # Parse the arguments...
 
-INSTALL_DIR=`pwd`/install
+INSTALL_DIR=`pwd`/install/
 INSTALL_POST_CMD=''
 TOP_DIR=`pwd`
 BASE_DIR=${BASE_DIR=$TOP_DIR}
