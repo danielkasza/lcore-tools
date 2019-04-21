@@ -32,7 +32,6 @@ PRINTF_ASCII .FILL 48 		;postive ascii value of '0'
 .FILL x66    ;  			70
 PRINTF_MINUS .FILL 45  
 PRINTF_BUF .BLKW 18
- 
 
 printf
 ADD R6, R6, #-2
@@ -82,7 +81,9 @@ ADD R5, R5, #1
 LDR R0, R5, #0
 
 PRINTF_CHAR
-OUT
+; FIXME: we should be polling here to make sure the hardware can accept the next byte.
+; This is not an issue on the simulator though.
+out r0, 3
 
 ADD R4, R4, #1
 BRnzp PRINTF_LOOP
@@ -98,7 +99,16 @@ BRnp PRINTF_CHECKDEC
 
 ADD R5, R5, #1
 LDR R0, R5, #0
-PUTS
+
+PRINTF_STRING_PUTS_LOOP:
+ldr r1, r0, #0
+brz PRINTF_STRING_PUTS_DONE
+; FIXME: we should be polling here
+out r1, 3
+add r0, r0, #1
+br PRINTF_STRING_PUTS_LOOP
+
+PRINTF_STRING_PUTS_DONE:
 
 ADD R4, R4, #1
 BRnzp PRINTF_LOOP
@@ -231,8 +241,16 @@ STR R0, R7, #0			;stored ascii value negative sign
 
 PRINTF_DECSTRING		;print the calculated string
 ADD R0, R7, #0
-PUTS
 
+PRINTF_DECSTRING_PUTS_LOOP:
+ldr r1, r0, #0
+brz PRINTF_DECSTRING_PUTS_DONE
+; FIXME: we should be polling here
+out r1, 3
+add r0, r0, #1
+br PRINTF_DECSTRING_PUTS_LOOP
+
+PRINTF_DECSTRING_PUTS_DONE:
 ADD R4, R4, #1
 BRnzp PRINTF_LOOP
 
@@ -311,8 +329,10 @@ BRnp SCANF_CHECKD
 ADD R5, R5, #1 
 LDR R2, R5, #0		;R2 has addr for char to be read into 
 
-GETC 
-OUT
+; Loop until we get data.
+SCANF_WAIT_FOR_INPUT
+in r0, 2
+brn SCANF_WAIT_FOR_INPUT
 STR R0, R2, #0 
  
 ADD R4, R4, #1 
@@ -340,9 +360,8 @@ LD R2, SCANF_0
 LD R1, SCANF_9
  
 SCANF_SCANNUM 
- 
-GETC 
-OUT
+in r0, 2
+brn SCANF_SCANNUM
 STR R0, R4, #0		;Reading and storing typed char 
  
 ADD R0, R2, R0 
@@ -473,8 +492,8 @@ ADD R5, R5, #1		;getting starting addr of space for string to be read in
 LDR R4, R5, #0 
  
 SCANSTRLOOP 
-GETC 
-OUT
+in r0, 2
+brn SCANSTRLOOP
 STR R0, R4, #0		;Reading and storing typed char 
 ADD R4, R4, #1 
  
@@ -494,8 +513,9 @@ BRnzp SCANF_LOOP
  
 SCANF_MATCHCHAR 
 ADD R4, R4, #1
-GETC 
-OUT
+SCANF_MATCHCHAR_WAIT_FOR_INPUT
+in r0, 2
+brn SCANF_MATCHCHAR_WAIT_FOR_INPUT
 NOT R0, R0
 ADD R0, R0, #1
 ADD R0, R0, R2 
@@ -521,13 +541,12 @@ LC3_GFLAG lc3_getchar LC3_GFLAG .FILL getchar
 
 getchar
 
-STR R7, R6, #-3
 STR R0, R6, #-2
-GETC
-OUT
+GETCHAR_WAIT_FOR_INPUT
+in r0, 2
+brn GETCHAR_WAIT_FOR_INPUT
 STR R0, R6, #-1
 LDR R0, R6, #-2
-LDR R7, R6, #-3
 ADD R6, R6, #-1
 RET
 
@@ -537,14 +556,17 @@ LC3_GFLAG lc3_putchar LC3_GFLAG .FILL putchar
 
 putchar
 
-STR R7, R6, #-3
 STR R0, R6, #-2
 
+; Poll to make sure the hardware can accept this char.
+PUTCHAR_POLL:
+in r0, 3
+brz PUTCHAR_POLL
+
 LDR R0, R6, #0
-OUT
+out r0, 3
 
 LDR R0, R6, #-2
-LDR R7, R6, #-3
 ADD R6, R6, #-1
 RET
 
