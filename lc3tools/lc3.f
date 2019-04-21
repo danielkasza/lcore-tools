@@ -61,8 +61,8 @@ enum opcode_t {
 
     /* real instruction opcodes */
     OP_ADD, OP_AND, OP_XOR, OP_BR, OP_JMP, OP_JSR, OP_JSRR, OP_LD, OP_IN,
-    OP_LDR, OP_LEA, OP_NOT, OP_RTI, OP_ST, OP_OUT, OP_STR, OP_LSHF, OP_RSHFL,
-    OP_RSHFA,
+    OP_LDR, OP_LEA, OP_NOT, OP_RTI, OP_ST, OP_OUT, OP_STR, OP_LSL, OP_LSR,
+    OP_MUL, OP_OR, OP_SUB,
 
     /* non-trap pseudo-ops */
     OP_FILL, OP_RET, OP_STRINGZ,
@@ -85,7 +85,8 @@ static const char* const opnames[NUM_OPS] = {
 
     /* real instruction opcodes */
     "ADD", "AND", "XOR", "BR", "JMP", "JSR", "JSRR", "LD", "IN", "LDR",
-    "LEA", "NOT", "RTI", "ST", "OUT", "STR", "LSHF", "RSHFL", "RSHFA",
+    "LEA", "NOT", "RTI", "ST", "OUT", "STR", "LSL", "LSR", "MUL", "OR",
+    "SUB",
 
     /* non-trap pseudo-ops */
     ".FILL", "RET", ".STRINGZ",
@@ -138,9 +139,11 @@ static const int op_format_ok[NUM_OPS] = {
     0x018, /* ST: RI or RL formats only    */
     0x008, /* OUT: RI format only          */
     0x002, /* STR: RRI format only         */
-    0x002, /* LSHF: RRI format only        */
-    0x002, /* RSHFL: RRI format only       */
-    0x002, /* RSHFA: RRI format only       */
+    0x001, /* LSL: RRI format only         */
+    0x001, /* LSR: RRI format only         */
+    0x001, /* MUL: RRI format only         */
+    0x001, /* OR: RRI format only          */
+    0x001, /* SUB: RRI format only         */
 
     /* non-trap pseudo-op formats */
     0x0C0, /* .FILL: I or L formats only   */
@@ -318,9 +321,11 @@ RTI       {inst.op = OP_RTI;  last_cmd = "RTI"; BEGIN (ls_operands);}
 OUT       {inst.op = OP_OUT;  last_cmd = "OUT"; BEGIN (ls_operands);}
 STR       {inst.op = OP_STR;  last_cmd = "STR"; BEGIN (ls_operands);}
 ST        {inst.op = OP_ST;   last_cmd = "ST";  BEGIN (ls_operands);}
-LSHF      {inst.op = OP_LSHF; last_cmd = "LSHF";BEGIN (ls_operands);}
-RSHFL     {inst.op = OP_RSHFL;last_cmd = "RSHFL";BEGIN (ls_operands);}
-RSHFA     {inst.op = OP_RSHFA;last_cmd = "RSHFA";BEGIN (ls_operands);}
+LSL       {inst.op = OP_LSL;  last_cmd = "LSL"; BEGIN (ls_operands);}
+LSR       {inst.op = OP_LSR;  last_cmd = "LSR"; BEGIN (ls_operands);}
+MUL       {inst.op = OP_MUL;  last_cmd = "MUL"; BEGIN (ls_operands);}
+OR        {inst.op = OP_OR;   last_cmd = "OR";  BEGIN (ls_operands);}
+SUB       {inst.op = OP_SUB;  last_cmd = "SUB"; BEGIN (ls_operands);}
 
     /* rules for non-trap pseudo-ops */
 \.FILL    {inst.op = OP_FILL; last_cmd = ".FILL"; BEGIN (ls_operands);}
@@ -1020,17 +1025,20 @@ generate_instruction (operands_t operands, const char* opstr)
 	    (void)read_signed_val (o3, &val, 6);
 	    write_value (0x7000 | (r1 << 9) | (r2 << 6) | (val & 0x3F), 1);
 	    break;
-	case OP_LSHF:
-	    (void)read_unsigned_val (o3, &val, 4);
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0 << 4) | (val & 0xF), 1);
+	case OP_LSL:
+	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0x0 << 3) | r3, 1);
 	    break;
-	case OP_RSHFL:
-	    (void)read_unsigned_val (o3, &val, 4);
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (1 << 4) | (val & 0xF), 1);
+	case OP_LSR:
+	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0x1 << 3) | r3, 1);
 	    break;
-	case OP_RSHFA:
-	    (void)read_unsigned_val (o3, &val, 4);
-	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (3 << 4) | (val & 0xF), 1);
+	case OP_MUL:
+	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0x2 << 3) | r3, 1);
+	    break;
+	case OP_OR:
+	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0x3 << 3) | r3, 1);
+	    break;
+	case OP_SUB:
+	    write_value (0xD000 | (r1 << 9) | (r2 << 6) | (0x4 << 3) | r3, 1);
 	    break;
 
 	/* Generate non-trap pseudo-ops. */
