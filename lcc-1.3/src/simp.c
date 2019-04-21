@@ -451,7 +451,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 			&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size
 			&& muli(l->u.v.i, 1<<r->u.v.i, ty->u.sym->u.limits.min.i, ty->u.sym->u.limits.max.i, needconst))
 				return cnsttree(ty, (long)(l->u.v.i<<r->u.v.i));
-			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
+			if (r->op == CNST+I && (r->u.v.i >= 16*ty->size || r->u.v.i < 0)) {
 				warning("shifting an `%t' by %d bits is undefined\n", ty, r->u.v.i);
 				break;
 			}
@@ -460,7 +460,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 		case LSH+U:
 			identity(r,l,I,i,0);
 			sfoldcnst(<<);
-			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
+			if (r->op == CNST+I && (r->u.v.i >= 16*ty->size || r->u.v.i < 0)) {
 				warning("shifting an `%t' by %d bits is undefined\n", ty, r->u.v.i);
 				break;
 			}
@@ -546,7 +546,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 					n |= ~0UL<<(8*l->type->size - r->u.v.i);
 				return cnsttree(ty, n);
 			}
-			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
+			if (r->op == CNST+I && (r->u.v.i >= 16*ty->size || r->u.v.i < 0)) {
 				warning("shifting an `%t' by %d bits is undefined\n", ty, r->u.v.i);
 				break;
 			}
@@ -555,7 +555,7 @@ Tree simplify(int op, Type ty, Tree l, Tree r) {
 		case RSH+U:
 			identity(r,l,I,i,0);
 			sfoldcnst(>>);
-			if (r->op == CNST+I && (r->u.v.i >= 8*ty->size || r->u.v.i < 0)) {
+			if (r->op == CNST+I && (r->u.v.i >= 16*ty->size || r->u.v.i < 0)) {
 				warning("shifting an `%t' by %d bits is undefined\n", ty, r->u.v.i);
 				break;
 			}
