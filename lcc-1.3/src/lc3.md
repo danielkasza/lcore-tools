@@ -322,8 +322,8 @@ reg: DIVI1(reg,reg)   "#\n"   15
 reg: DIVU1(reg,reg)   "#\n"   15
 reg: MODI1(reg,reg)   "#\n"   15
 reg: MODU1(reg,reg)   "#\n"   15
-reg: MULI1(reg,reg)   "#\n"   10
-reg: MULU1(reg,reg)   "#\n"   10
+reg: MULI1(reg,reg)   "mul %c, %0, %1\n"  1
+reg: MULU1(reg,reg)   "mul %c, %0, %1\n"  1
 
 c5: CNSTP1            "%a"                range(a,-16,15)
 c5: CNSTI1            "%a"                range(a,-16,15)
@@ -345,23 +345,27 @@ reg: ADDU1(reg,reg)   "add %c, %0, %1\n"   1
 reg: BANDI1(reg,reg)  "and %c, %0, %1\n"   1
 reg: BANDU1(reg,reg)  "and %c, %0, %1\n"   1
 
-reg: BORI1(reg,reg)   "# \n"   5
-reg: BORU1(reg,reg)   "# \n"   5
-reg: BXORI1(reg,reg)  "# \n"   10
-reg: BXORU1(reg,reg)  "# \n"   10
+reg: BORI1(reg,reg)   "or %c, %0, %1\n"  1
+reg: BORU1(reg,reg)   "or %c, %0, %1\n"  1
+
+reg: BXORI1(reg,c5)   "xor %c, %0, #%1\n" 1
+reg: BXORU1(reg,c5)   "xor %c, %0, #%1\n" 1
+
+reg: BXORI1(reg,reg)  "xor %c, %0, %1\n" 1
+reg: BXORU1(reg,reg)  "xor %c, %0, %1\n" 1
 
 reg: SUBI1(reg,subc5) "add %c, %0, #-%1\n"  1
 reg: SUBP1(reg,subc5) "add %c, %0, #-%1\n"  1
 reg: SUBU1(reg,subc5) "add %c, %0, #-%1\n"  1
 
-reg: SUBI1(reg,reg)   "#\n"  3
-reg: SUBP1(reg,reg)   "#\n"  3
-reg: SUBU1(reg,reg)   "#\n"  3
+reg: SUBI1(reg,reg)   "sub %c, %0, %1\n"  1
+reg: SUBP1(reg,reg)   "sub %c, %0, %1\n"  1
+reg: SUBU1(reg,reg)   "sub %c, %0, %1\n"  1
 
-reg: LSHI1(reg,reg)   "#\n"  6
-reg: LSHU1(reg,reg)   "#\n"  6
-reg: RSHI1(reg,reg)   "#\n"  15
-reg: RSHU1(reg,reg)   "#\n"  15
+reg: LSHI1(reg,reg)   "lsl %c, %0, %1\n"  1
+reg: LSHU1(reg,reg)   "lsl %c, %0, %1\n"  1
+reg: RSHI1(reg,reg)   "lsr %c, %0, %1\n"  1
+reg: RSHU1(reg,reg)   "lsr %c, %0, %1\n"  1
 
 reg: BCOMI1(reg)  "not %c,%0\n"   1
 reg: BCOMU1(reg)  "not %c,%0\n"   1
@@ -892,219 +896,7 @@ extern void dumptree(Node p);
 				lc3_addimm(x,5,i);
 			break;
 
-/*************** Logical Operators: |,^,<<,>> ************************/
-		case BOR+I:
-			/*OR done with demorgan's theorem (a'b')'*/
-			prologue(p,&x,&y,&z,&yflag,&destflag);	
-			lc3_push(y);
-			lc3_push(z);
-
-			lc3_not(y);
-			lc3_not(z);
-			lc3_and(x,y,z);
-			lc3_not(x);
-
-			lc3_pop(z);
-			lc3_pop(y);
-			
-			epilogue(p,&x,&y,&yflag,&destflag);
-			break;
-
-		case BXOR+I:
-			prologue(p,&x,&y,&z,&yflag,&destflag);	
-			lc3_push(y);
-
-			/*XOR done with demorgan's theorem ((ab')'(a'b)')'*/
-			lc3_addimm(x,z,0);
-			lc3_not(x);
-			lc3_and(x,x,y);
-
-			lc3_not(y);
-			lc3_and(y,y,z);
-
-			lc3_not(x);
-			lc3_not(y);
-			lc3_and(x,x,y);
-			lc3_not(x);
-
-			lc3_pop(y);
-			epilogue(p,&x,&y,&yflag,&destflag);
-			break;
-
-		case LSH+I: 
-			print(";LSH\n");
-
-			labels[0] = genlabel(1);
-			labels[1] = genlabel(1);
-
-			prologue(p,&x,&y,&z,&yflag,&destflag);	
-			lc3_push(z);
-
-			lc3_addimm(x,y,0);
-
-			lc3_addimm(z,z,0);
-			//print("BRz L%d\n",labels[1]);
-			lc3_brz(labels[1]);
-
-			//print("L%d\n",labels[0]);
-			lc3_lab(labels[0]);
-			lc3_add(x,x,x);
-			lc3_addimm(z,z,-1);
-			//print("BRnp L%d\n",labels[0]);
-			lc3_brnp(labels[0]);
-
-			//print("L%d\n",labels[1]);
-			lc3_lab(labels[1]);
-
-			lc3_pop(z);
-			epilogue(p,&x,&y,&yflag,&destflag);
-			break;
-
-		case RSH+I: 
-			print(";RSHI\n");
-			prologue(p,&x,&y,&z,&yflag,&destflag);
-
-			lc3_push(z);
-
-			labels[6] = genlabel(1);
-			labels[7] = genlabel(1);
-
-			lc3_andimm(x,x,0);
-			lc3_addimm(x,x,1);
-
-			lc3_addimm(z,z,0);
-			print("BRz L%d\n",labels[6]);
-
-			print("L%d\n",labels[7]);
-			lc3_add(x,x,x);
-			lc3_addimm(z,z,-1);
-			print("BRnp L%d\n",labels[7]);
-
-			print("L%d\n",labels[6]);
-			lc3_addimm(z,x,0);
-
-			/* need 6 labels for signed div!*/
-			labels[0] = genlabel(1);
-			labels[1] = genlabel(1);
-			labels[2] = genlabel(1);
-			labels[3] = genlabel(1);
-			labels[4] = genlabel(1);
-			labels[5] = genlabel(1);
-
-			lc3_addimm(z,z,0);
-			print("BRz L%d\n",labels[0]);
-
-			lc3_push(y);
-			lc3_push(z);
-			lc3_andimm(x,x,0);
-			lc3_addimm(y,y,0);
-			print("BRzp L%d\n",labels[1]);
-
-			lc3_neg(y);
-			print("L%d\n",labels[1]);
-
-			lc3_addimm(z,z,0);
-			print("BRn L%d\n",labels[2]);
-
-			lc3_neg(z);
-
-			/*div loop finally*/
-			print("L%d\n",labels[2]);
-			lc3_add(y,y,z);
-			print("BRn L%d\n",labels[3]);
-
-			/*x is the quotient*/
-			lc3_addimm(x,x,1);
-			print("BR L%d\n",labels[2]);
-
-			print("L%d\n",labels[3]);
-			lc3_pop(z);
-			lc3_pop(y);
-
-			/*figure out if the quotient should be signed or not*/
-			lc3_addimm(z,z,0);
-			print("BRzp L%d\n",labels[4]);
-
-			lc3_addimm(y,y,0);
-			print("BRzp L%d\n",labels[5]);
-			print("BRn L%d\n",labels[0]);
-
-			print("L%d\n",labels[4]);
-			lc3_addimm(y,y,0);
-			print("BRzp L%d\n",labels[0]);
-
-			print("L%d\n",labels[5]);
-			lc3_neg(x);
-
-			print("L%d\n",labels[0]);
-
-			lc3_pop(z);
-			epilogue(p,&x,&y,&yflag,&destflag);
-			break;
-
 /*************** Arithematic Functions  -,*, /,% ***********************/
-		case SUB+I: case SUB+P: case SUB+U:
-			if(specific(RIGHT_CHILD(p)->op) != CNST) // Edgar: And what if it is a constant?
-			{
-				prologue(p,&x,&y,&z,&yflag,&destflag);
-
-				lc3_push(z);
-
-				lc3_neg(z);
-				lc3_add(x,y,z);
-				lc3_pop(z);
-				epilogue(p,&x,&y,&yflag,&destflag);
-			}
-			break;
-
-		case MUL+I:
-			//print(";mul R%d, R%d, R%d\n",getregnum(p), getregnum(LEFT_CHILD(p)), getregnum(RIGHT_CHILD(p)));
-			prologue(p,&x,&y,&z,&yflag,&destflag);
-
-			lc3_push(z);
-
-			/* need 3 labels for signed mul*/
-			labels[0] = genlabel(1);
-			labels[1] = genlabel(1);
-			labels[2] = genlabel(1);
-
-			lc3_andimm(x,x,0);
-			lc3_addimm(z,z,0);
-
-			//print("BRz L%d\n",labels[1]);
-			lc3_brz(labels[1]);
-			lc3_brp(labels[0]);
-			//print("BRp L%d\n",labels[0]);
-
-			lc3_neg(z);
-
-			//print("L%d\n",labels[0]);
-			lc3_lab(labels[0]);
-
-			lc3_add(x,x,y);
-			lc3_addimm(z,z,-1);
-
-			//print("BRnp L%d\n",labels[0]);
-			lc3_brnp(labels[0]);
-
-			//print("L%d\n",labels[1]);
-			lc3_lab(labels[1]);
-			lc3_pop(z);
-
-			lc3_addimm(z,z,0);
-			//print("BRzp L%d\n",labels[2]);
-			lc3_brzp(labels[2]);
-
-			lc3_neg(x);
-
-			//print("L%d\n",labels[2]);
-			lc3_lab(labels[2]);
-
-			print(";bef epilogue x=%d y=%d z=%d\n",x,y,z);
-			epilogue(p,&x,&y,&yflag,&destflag);
-			print(";aft epilogue x=%d y=%d z=%d\n",x,y,z);
-			break;
-
 		case DIV+I:
 			//print(";diving\n");
 			prologue(p,&x,&y,&z,&yflag,&destflag);
